@@ -4,12 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.mbkeys.mixin.KeyMappingAccessor;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.screens.options.SoundOptionsScreen;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -37,8 +34,6 @@ public class MbKeysClient implements ClientModInitializer {
     private static final Set<String> IGNORED = new HashSet<>();
     private static final List<String> ALL_IDS = new ArrayList<>();
     private static boolean enabled = true;
-    private static Button secretButton;
-    private static SoundOptionsScreen secretButtonScreen;
     private static List<String> toggleKeys = new ArrayList<>();
     private static boolean toggleLatch = false;
     private static boolean capturingToggle = false;
@@ -57,38 +52,15 @@ public class MbKeysClient implements ClientModInitializer {
     public void onInitializeClient() {
         loadConfig();
         ClientTickEvents.START_CLIENT_TICK.register(MbKeysClient::tick);
-        ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
-            if (!(screen instanceof SoundOptionsScreen soundScreen)) return;
-            // Fabric screen API avoids a fragile injection into Minecraft option screens.
-            Button button = Button.builder(Component.literal("·"), b ->
-                    client.setScreen(new MbKeysScreen(soundScreen)))
-                    .bounds(width / 2 + 130, height - 53, 12, 12).build();
-            button.visible = false;
-            button.active = false;
-            // Fabric's getButtons() list renders the button, but Minecraft routes
-            // mouse input through the separate children() list. Register in both.
-            Screens.getButtons(screen).add(button);
-            @SuppressWarnings("unchecked")
-            List<GuiEventListener> mouseChildren =
-                    (List<GuiEventListener>) (List<?>) screen.children();
-            mouseChildren.add(button);
-            secretButtonScreen = soundScreen;
-            secretButton = button;
-        });
-        ClientTickEvents.END_CLIENT_TICK.register(MbKeysClient::updateSecretButton);
-
-    }
-
-    private static void updateSecretButton(Minecraft client) {
-        if (!(client.screen instanceof SoundOptionsScreen screen)) return;
-        if (screen != secretButtonScreen || secretButton == null) return;
-        Button button = secretButton;
-        long window = GLFW.glfwGetCurrentContext();
-        boolean alt = window != 0 && (
-                GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS ||
-                GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS);
-        button.visible = alt;
-        button.active = alt;
+        // Client-side only: /4248 opens the settings without a server plugin.
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+                dispatcher.register(literal("4248").executes(context -> {
+                    Minecraft client = Minecraft.getInstance();
+                    // Commands execute while chat is closing. Schedule the screen change
+                    // on the client thread so the chat screen cannot immediately replace it.
+                    client.execute(() -> client.setScreen(new MbKeysScreen(null)));
+                    return 1;
+                })));
     }
 
     // ---------------------------------------------------------- public api
