@@ -1,0 +1,1 @@
+Fix: Register secret button in both the renderable list (Screens.getButtons) and the mouse event children list (Screen.children). No ScreenMouseEvents.afterMouseClick handler. This is source only; build and in-game verification are still required.

@@ -5,9 +5,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.mbkeys.mixin.KeyMappingAccessor;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.options.SoundOptionsScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -65,20 +65,15 @@ public class MbKeysClient implements ClientModInitializer {
                     .bounds(width / 2 + 130, height - 53, 12, 12).build();
             button.visible = false;
             button.active = false;
+            // Fabric's getButtons() list renders the button, but Minecraft routes
+            // mouse input through the separate children() list. Register in both.
             Screens.getButtons(screen).add(button);
+            @SuppressWarnings("unchecked")
+            List<GuiEventListener> mouseChildren =
+                    (List<GuiEventListener>) (List<?>) screen.children();
+            mouseChildren.add(button);
             secretButtonScreen = soundScreen;
             secretButton = button;
-            // Screens.getButtons adds the visible button, but some versions do not
-            // register it as a mouse-event child. Handle its clicks explicitly.
-            ScreenMouseEvents.afterMouseClick(screen).register((clickedScreen, mouseX, mouseY, mouseButton) -> {
-                if (mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT) return;
-                if (client.screen != clickedScreen || clickedScreen != secretButtonScreen) return;
-                if (secretButton != button || !button.visible || !button.active) return;
-                if (mouseX >= button.getX() && mouseX < button.getX() + button.getWidth()
-                        && mouseY >= button.getY() && mouseY < button.getY() + button.getHeight()) {
-                    client.setScreen(new MbKeysScreen(soundScreen));
-                }
-            });
         });
         ClientTickEvents.END_CLIENT_TICK.register(MbKeysClient::updateSecretButton);
 
