@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.mbkeys.mixin.KeyMappingAccessor;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.options.SoundOptionsScreen;
@@ -67,6 +68,17 @@ public class MbKeysClient implements ClientModInitializer {
             Screens.getButtons(screen).add(button);
             secretButtonScreen = soundScreen;
             secretButton = button;
+            // Screens.getButtons adds the visible button, but some versions do not
+            // register it as a mouse-event child. Handle its clicks explicitly.
+            ScreenMouseEvents.afterMouseClick(screen).register((clickedScreen, mouseX, mouseY, mouseButton) -> {
+                if (mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT) return;
+                if (client.screen != clickedScreen || clickedScreen != secretButtonScreen) return;
+                if (secretButton != button || !button.visible || !button.active) return;
+                if (mouseX >= button.getX() && mouseX < button.getX() + button.getWidth()
+                        && mouseY >= button.getY() && mouseY < button.getY() + button.getHeight()) {
+                    client.setScreen(new MbKeysScreen(soundScreen));
+                }
+            });
         });
         ClientTickEvents.END_CLIENT_TICK.register(MbKeysClient::updateSecretButton);
 
