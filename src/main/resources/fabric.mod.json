@@ -3,7 +3,7 @@
   "id": "mbkeys",
   "version": "${version}",
   "name": "LumaBoost",
-  "description": "Customizable extra keybindings and quick controls.",
+  "description": "Lightweight client-side utilities designed for a smoother gameplay experience.",
   "authors": [
     "MB Gaming GG"
   ],
